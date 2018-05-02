@@ -3,19 +3,30 @@ import numpy as np
 import logging
 logger = logging.getLogger(__name__)
 
-# https://stackoverflow.com/questions/48344108/convert-data-faster-from-byte-to-3d-numpy-array
-
-# dtype = [('headers', np.void, frame_header_size), ('frames', '<u2', (height, width))]
-# mmap = np.memmap(filename, dtype, offeset=main_header_size)
-# array = mmap['frames']
-
 
 class MerlinImageReshaper:
 
-    _data = None
+    data = None
 
-    def __init__(self, body, offset, bitdepth, raw=False):
-        pass
+    def __init__(self, body, frame):
+        if frame.raw:
+            pass
 
+        else:
+            bm = {
+                8: '>u1',
+                16: '>u2',
+                32: '>u4',
+            }
 
+            if frame.bit_depth in bm:
+                dt = bm[frame.bit_depth]
+            else:
+                raise Exception('Unknown bitdepth')
 
+            logger.debug('Creating np array of {bd}bit depth'.format(bd=frame.bit_depth))
+
+            self.data = np.frombuffer(body, dtype=dt, offset=frame.offset).reshape((frame.width, frame.height))
+
+            # Merlin data is upside down...
+            self.data = np.flip(self.data, 0)
