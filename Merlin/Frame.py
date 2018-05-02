@@ -69,9 +69,9 @@ class MerlinImage(MerlinDataFrame):
         self.bit_depth = int(params[6][1:])
         self.raw = params[6][0] != 'U'
 
-        self.shaper = MerlinImageReshaper(body, self.offset, self.bit_depth, self.raw)
+        self._shaper = MerlinImageReshaper(body, self)
 
-        logger.debug('Parsed Frame {f} {d}'.format(f=self.number, d=self.data))
+        logger.debug('Parsed Frame {f}'.format(f=self.number))
 
 
     @property
