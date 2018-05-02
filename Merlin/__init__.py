@@ -104,6 +104,7 @@ class Merlin:
         header_char = 0
         leading = 0
 
+        st = time.time()
         logger.debug('Finding frame start')
         while header_char < len(self._header):
             char = self._data_socket.recv(1)
@@ -115,33 +116,38 @@ class Merlin:
                 header_char = 0
                 leading += 1
 
+        logger.debug('Found frame start, took {t:.5f}s'.format(t=time.time()-st))
+
         if leading > 0:
             logger.warning('{b} leading bytes of data discarded'.format(b=leading))
 
 
+        st = time.time()
         logger.debug('Reading header')
-        read_count = 0
         header = ''
         header_size = len(self._header) + self._num_digits + 2
-        while read_count < (header_size - len(self._header)):
-            header += self._data_socket.recv(1)
-            read_count += 1
+        while len(header) < (header_size - len(self._header)):
+            header += self._data_socket.recv((header_size - len(self._header)) - len(header))
 
+        logger.debug('Read header, took {t:.5f}s'.format(t=time.time()-st))
 
         # logger.debug('Got header: {hdr}'.format(hdr=header))
         parts = header.split(',')
         body_length = int(parts[1]) - 1
 
-        logger.debug('Reading body, len {len}'.format(len=body_length))
+        st = time.time()
+        logger.debug('Reading body, {len} bytes'.format(len=body_length))
         body = ''
+        iterations = 0
         while len(body) < body_length:
             body += self._data_socket.recv(body_length-len(body))
+            iterations += 1
 
 
         if len(body) < body_length:
             logger.warning('Body truncated got {len} of {tot} bytes'.format(len=len(body), tot=body_length))
 
-        # logger.debug('Got body {bd}'.format(bd=body))
+        logger.debug('Read body, took {t:.5f}s over {it} iterations'.format(t=time.time()-st, it=iterations))
         return MerlinDataFrame.factory(body)
 
 
