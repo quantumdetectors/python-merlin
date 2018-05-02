@@ -1,4 +1,5 @@
 import time
+import matplotlib.pyplot as plt
 
 from Merlin import Merlin
 
@@ -16,7 +17,7 @@ try:
     mer.connect()
 
     mer.set('ACQUISITIONTIME', 1)
-    mer.set('NUMFRAMESTOACQUIRE', 1000)
+    mer.set('NUMFRAMESTOACQUIRE', 10)
     mer.cmd('STARTACQUISITION')
 
     # This wont work if acq time is really short, as by the time the flag is set it gets unset again
@@ -33,6 +34,9 @@ try:
 
     frames = mer.frames()
     logging.info('Finished {fr}'.format(fr=len(frames)))
+
+    plot = plt.imshow(frames[0].data)
+    plt.show()
 
 
 finally:
