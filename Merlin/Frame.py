@@ -3,6 +3,11 @@ logger = logging.getLogger(__name__)
 
 from Merlin.Shaper import MerlinImageReshaper
 
+from connection.MERLIN_connection import ImageHeader
+from MERLIN_Detector import MERLINDetector
+
+
+
 class MerlinDataFrame:
 
     _quad_data = 'MQ1'
@@ -70,6 +75,9 @@ class MerlinImage(MerlinDataFrame):
         self.raw = params[6][0] != 'U'
 
         self._shaper = MerlinImageReshaper(body, self)
+
+        self.ImgHeader = ImageHeader(body[0:800])
+        self.MerlinDet = MERLINDetector( body,  Image = 'img_', Display = 'OFF', fromFile = False,fromSTU = True,  header = self.ImgHeader)
 
         logger.debug('Parsed Frame {f}'.format(f=self.number))
 
