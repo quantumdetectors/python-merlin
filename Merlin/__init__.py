@@ -24,6 +24,7 @@ class Merlin:
 
     _header = 'MPX'
     _num_digits = 10
+    _moduleName='None'
     
     _setupDaqScan = False
 
@@ -31,7 +32,11 @@ class Merlin:
     def __init__(self, host=None):
         if host:
             self._host = host
-
+        
+        
+        
+        self._clearBuffers()
+        
         self._data_queue = Queue.Queue()
         self._data_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._data_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -44,22 +49,21 @@ class Merlin:
         self._acquired_lock = threading.Lock()
 
 
-
-
     def connect(self):
+        
+        
         logger.info('Connecting to cmd and data sockets')
         self._cmd_socket.connect((self._host, self._cmd_port))
         self._data_socket.connect((self._host, self._data_port))
         self._connected = True
-        
-
+      
         self._running.set()
         self._thread = threading.Thread(target=self._read_data)
         self._thread.daemon = True
         self._thread.start()
 
         # Give a bit of time for socket connection
-        time.sleep(1)
+        time.sleep(1.0)
 
 
     def _send(self, message):
@@ -164,22 +168,18 @@ class Merlin:
             if self._data_socket is not None:
                 # logger.debug('Data task looping')
 
-                ready = select.select([self._data_socket], [], [], 0.5)
+                ready = select.select([self._data_socket], [], [], 5.0)
                 # print 'ready', ready
                 if ready[0]:
                     logger.debug('Data waiting in socket')
 
-
-
                     frame = self._grab_frame()
-                    
                     
                     if frame:
                         if isinstance(frame, MerlinAcqHeader):
                             
-                            #self.theMerlinAcqHeader = frame
-                            
-                            #print self.theMerlinAcqHeader
+                            self._moduleName = frame._moduleName
+                            self.Name = frame.Name
                             
                             self._start_time = time.time()
                             with self._acquired_lock:
@@ -189,6 +189,7 @@ class Merlin:
                             if self._setupDaqScan :
                                 self._to_acquire = (self.dacend - self.dacini) + 1
 
+                            # is this the right place? What if the first frame is not a header?
                             self._acquiring.set()
 
                             with self._acquired_lock:
@@ -196,9 +197,7 @@ class Merlin:
                                 if self._setupDaqScan == False :
                                     self._acquired = 0
 
-
-
-############ This is me commenting this linesout. But absolutely try and failhere
+                            ############ This is me commenting this linesout. But absolutely try and failhere
                             # Discard any old frames on new acq
                             #with self._data_queue.mutex:
                             #    self._data_queue.queue.clear()
@@ -222,6 +221,38 @@ class Merlin:
                                 dur = time.time() - self._start_time
                                 logger.info('Took {sec:.2f}s, {fps:.2f}fps'.format(sec=dur,fps=self._to_acquire/dur))
 
+
+    ##  Grabs data until there is nothing more in the buffer@
+    def _clearBuffers(self):
+        
+        logger.info('Attempting to clean network buffer before acquisition')
+        data_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        data_socket.connect((self._host, self._data_port))
+
+        st=time.time()
+        onGoingAcq = True
+        while onGoingAcq :
+            
+            ready = select.select([data_socket], [], [], 5.0) # timeout needs to be larger than frame time. I choose 2x
+            
+            if ready[0]:
+                
+                # there is data to be collected
+                ongoingAcquisition = True
+                
+                msg = data_socket.recv(4096)
+                
+                if time.time() - st >  3.0:
+                    logger.info('Clearing network buffer')
+                    st = time.time()
+    
+            else :
+                onGoingAcq = False
+    
+        logger.info('Buffer is now clear')
+        
+        data_socket.close()
+    ############################################
 
 
 

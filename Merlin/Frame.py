@@ -7,11 +7,11 @@ from connection.MERLIN_connection import ImageHeader
 from MERLIN_Detector import MERLINDetector
 
 
-
 class MerlinDataFrame:
 
     _quad_data = 'MQ1'
     _acq_header = 'HDR'
+    #_moduleName = 'None'
 
 
     def factory(body):
@@ -27,13 +27,18 @@ class MerlinDataFrame:
     factory = staticmethod(factory)
 
 
-
+#  Put though test
 class MerlinAcqHeader(MerlinDataFrame):
     _map = {
-        'Frames in Acquisition (Number)': 'to_acquire'
+        'Frames in Acquisition (Number)': 'to_acquire',
+        #'Chip ID':  'chipNames',
+        #'Assembly Size (1X1, 2X2)': 'Layout',
+        #'Gain':    'gain'
     }
 
     def __init__(self, body):
+        
+        
         for l in body.replace('HDR,', '').split('\n'):
             pairs = l.split(':')
 
@@ -45,10 +50,33 @@ class MerlinAcqHeader(MerlinDataFrame):
                     key = pairs[0]
                     v = pairs[1].strip()
 
-                setattr(self, key, v)
+                setattr(self, key.replace(' ','_'), v)
 
+
+        self._get_chips()
         logger.info('Parsed Acq Header acquiring {f} frames'.format(f=self.to_acquire))
 
+
+    # Gets the number of chips and
+    def _get_chips(self) :
+
+        Chips = ['Chip1','Chip2','Chip3','Chip4']
+        self.Name = {}
+        
+        
+        modlist = self.Chip_ID.split(',')
+        module=''
+
+        #print ' moooofList ', modlist
+        for i,chip in enumerate(modlist):
+            if '-' not in chip:
+                if i==0:
+                    module= chip
+                else:
+                    module = module + '-'+chip
+                self.Name[Chips[i]] =  chip
+
+        setattr(self, '_moduleName', module)
 
 
 class MerlinImage(MerlinDataFrame):
