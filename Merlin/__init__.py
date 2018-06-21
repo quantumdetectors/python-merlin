@@ -172,7 +172,9 @@ class Merlin:
                 # print 'ready', ready
                 if ready[0]:
                     logger.debug('Data waiting in socket')
-
+                    #Trying it here
+                    self._acquiring.set()
+                    
                     frame = self._grab_frame()
                     
                     if frame:
@@ -189,8 +191,9 @@ class Merlin:
                             if self._setupDaqScan :
                                 self._to_acquire = (self.dacend - self.dacini) + 1
 
+                            #### Testing commenting this out
                             # is this the right place? What if the first frame is not a header?
-                            self._acquiring.set()
+                            #################self._acquiring.set()
 
                             with self._acquired_lock:
                                 #self._acquired = 0
@@ -252,6 +255,7 @@ class Merlin:
         logger.info('Buffer is now clear')
         
         data_socket.close()
+        del data_socket
     ############################################
 
 
