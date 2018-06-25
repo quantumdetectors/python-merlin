@@ -4,6 +4,7 @@ import select
 import errno
 import time
 import threading
+import numpy as np
 
 import logging
 logger = logging.getLogger(__name__)

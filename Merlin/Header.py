@@ -18,6 +18,7 @@ class ImageHeader:
         ''' LALALA. If DAC=1 if we are using this from DAC scan. It does not seem as if
         we are getting data aproproately from TCP as the DAC that is running is set to zero'''
 
+
         list = header_str.split(',')
         
         self.params = {}
@@ -28,6 +29,8 @@ class ImageHeader:
 
     
     def _Params(self, list, dac):
+        
+        
         
         self.params['acqNumber'] = int(list[1])
         self.params['Offset'] = int(list[2])
@@ -60,6 +63,7 @@ class ImageHeader:
         if 'U' in self.params['dataType']:
             #print " Getting through here "
             self.params['Thresholds'] = list[14:22]
+           
             
             counter = 22
             
