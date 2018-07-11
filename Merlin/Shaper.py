@@ -161,7 +161,7 @@ class MerlinImageReshaper:
 
         else:
             self.chips = ['Chip1','Chip2','Chip3','Chip4']
-            print ' here we are with this many chips', self.chips
+            #print ' here we are with this many chips', self.chips
 
             if self._isRaw  or ('Nx1' in  self.imgheader.params['detLayout']):
                 img_chips = np.hsplit(self.data,4)

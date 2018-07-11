@@ -28,6 +28,8 @@ class Merlin:
     _moduleName='None'
     
     _setupDaqScan = False
+    Name = None
+    
 
 
     def __init__(self, host=None):
@@ -183,6 +185,9 @@ class Merlin:
                             
                             self._moduleName = frame._moduleName
                             self.Name = frame.Name
+                            
+                            #print "   NNNAAAAAAAAMMMMEEEEEE", self.Name
+                            
                             
                             self._start_time = time.time()
                             with self._acquired_lock:
