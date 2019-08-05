@@ -4,6 +4,7 @@ import select
 import errno
 import time
 import threading
+import numpy as np
 
 import logging
 logger = logging.getLogger(__name__)
@@ -24,12 +25,21 @@ class Merlin:
 
     _header = 'MPX'
     _num_digits = 10
+    _moduleName='None'
+    
+    _setupDaqScan = False
+    Name = None
+    
 
 
     def __init__(self, host=None):
         if host:
             self._host = host
-
+        
+        
+        
+        self._clearBuffers()
+        
         self._data_queue = Queue.Queue()
         self._data_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._data_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -43,18 +53,20 @@ class Merlin:
 
 
     def connect(self):
+        
+        
         logger.info('Connecting to cmd and data sockets')
         self._cmd_socket.connect((self._host, self._cmd_port))
         self._data_socket.connect((self._host, self._data_port))
         self._connected = True
-
+      
         self._running.set()
         self._thread = threading.Thread(target=self._read_data)
         self._thread.daemon = True
         self._thread.start()
 
         # Give a bit of time for socket connection
-        time.sleep(1)
+        time.sleep(1.0)
 
 
     def _send(self, message):
@@ -148,6 +160,7 @@ class Merlin:
             logger.warning('Body truncated got {len} of {tot} bytes'.format(len=len(body), tot=body_length))
 
         logger.debug('Read body, took {t:.5f}s over {it} iterations'.format(t=time.time()-st, it=iterations))
+        # Edumodif
         return MerlinDataFrame.factory(body)
 
 
@@ -158,38 +171,98 @@ class Merlin:
             if self._data_socket is not None:
                 # logger.debug('Data task looping')
 
-                ready = select.select([self._data_socket], [], [], 0.5)
+                ready = select.select([self._data_socket], [], [], 5.0)
                 # print 'ready', ready
                 if ready[0]:
                     logger.debug('Data waiting in socket')
-
+                    #Trying it here
+                    self._acquiring.set()
+                    
                     frame = self._grab_frame()
+                    
                     if frame:
                         if isinstance(frame, MerlinAcqHeader):
+                            
+                            self._moduleName = frame._moduleName
+                            self.Name = frame.Name
+                            
+                            #print "   NNNAAAAAAAAMMMMEEEEEE", self.Name
+                            
+                            
                             self._start_time = time.time()
                             with self._acquired_lock:
                                 self._to_acquire = frame.to_acquire
+                            
+                            #    Edu testing here --- > to include DAC scans !!!!!!
+                            if self._setupDaqScan :
+                                self._to_acquire = (self.dacend - self.dacini) + 1
 
-                            self._acquiring.set()
+                            #### Testing commenting this out
+                            # is this the right place? What if the first frame is not a header?
+                            #################self._acquiring.set()
 
                             with self._acquired_lock:
-                                self._acquired = 0
+                                #self._acquired = 0
+                                if self._setupDaqScan == False :
+                                    self._acquired = 0
 
+                            ############ This is me commenting this linesout. But absolutely try and failhere
                             # Discard any old frames on new acq
-                            with self._data_queue.mutex:
-                                self._data_queue.queue.clear()
+                            #with self._data_queue.mutex:
+                            #    self._data_queue.queue.clear()
 
                         else:
                             with self._acquired_lock:
-                                self._acquired = frame.number
-
+                                #self._acquired = frame.number     ---- > Edu modif to try to make it work with DAC scan
+                                
+                                if self._setupDaqScan :
+                                    self._acquired  = self._acquired + 1
+                        
+                                else :
+                                    self._acquired = frame.number
+                        
+                        
                             self._data_queue.put(frame)
 
-                            if frame.number == self._to_acquire:
+                            # modif the two coming line
+                            if self._acquired == self._to_acquire:
                                 self._acquiring.clear()
                                 dur = time.time() - self._start_time
                                 logger.info('Took {sec:.2f}s, {fps:.2f}fps'.format(sec=dur,fps=self._to_acquire/dur))
 
+
+    ##  Grabs data until there is nothing more in the buffer@
+    def _clearBuffers(self):
+        
+        logger.info('Attempting to clean network buffer before acquisition')
+        data_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        data_socket.connect((self._host, self._data_port))
+
+        st=time.time()
+        onGoingAcq = True
+        while onGoingAcq :
+            
+            ready = select.select([data_socket], [], [], 5.0) # timeout needs to be larger than frame time. I choose 2x
+            
+            if ready[0]:
+                
+                # there is data to be collected
+                ongoingAcquisition = True
+                
+                msg = data_socket.recv(4096)
+                
+                if time.time() - st >  3.0:
+                    logger.info('Clearing network buffer')
+                    st = time.time()
+    
+            else :
+                onGoingAcq = False
+    
+        logger.info('Buffer is now clear')
+        
+        data_socket.close()
+        del data_socket
+    ############################################
 
 
 
@@ -217,10 +290,22 @@ class Merlin:
         with self._acquired_lock:
             return self._acquired
 
-
     def frames(self):
         frames = []
         for _ in range(self._data_queue.qsize()):
             frames.append(self._data_queue.get_nowait())
 
         return frames
+ 
+                 
+    # Edu Added two new functions
+    def setDacScan(self, dacini, dacend):
+        self.dacini = dacini
+        self.dacend = dacend
+        self._setupDaqScan = True
+                 
+    def unsetDacScan(self):
+        self._setupDaqScan = False
+        self._acquired = 0
+                 
+                 
